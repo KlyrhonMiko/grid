@@ -93,21 +93,26 @@
         return;
       }
 
-      // Remove code from URL so back-button / reload won't re-trigger
+      // Remove code from URL so back/reload won't re-trigger
       if (window.history && window.history.replaceState) {
         window.history.replaceState(null, "", window.location.pathname);
       }
 
-      // Try opening the app via deep link
-      var deepLink = "grid://callback?code=" + encodeURIComponent(code);
+      var encodedCode = encodeURIComponent(code);
 
-      // Use an invisible iframe to trigger the deep link — avoids navigation issues
-      var iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = deepLink;
-      document.body.appendChild(iframe);
+      // Android Chrome: use intent:// URL which is the official way to launch apps
+      // iOS: use custom scheme directly
+      var isAndroid = /android/i.test(navigator.userAgent);
 
-      // Show fallback after a short delay if the page is still visible
+      if (isAndroid) {
+        window.location.href =
+          "intent://callback?code=" + encodedCode +
+          "#Intent;scheme=grid;package=com.example.grid;end";
+      } else {
+        window.location.href = "grid://callback?code=" + encodedCode;
+      }
+
+      // Show manual fallback after 3 seconds if page is still visible
       setTimeout(function () {
         document.getElementById("loading").classList.add("hidden");
         var fb = document.getElementById("fallback");
@@ -126,7 +131,7 @@
             sel.addRange(range);
           });
         });
-      }, 2500);
+      }, 3000);
     })();
   </script>
 </body>
