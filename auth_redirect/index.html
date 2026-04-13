@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redirecting…</title>
+  <title>Authorization Code</title>
   <style>
     body {
       background: #0d1015;
@@ -18,81 +18,99 @@
     .card {
       text-align: center;
       padding: 2rem;
-      max-width: 340px;
+      max-width: 360px;
+      width: 100%;
     }
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255,255,255,.15);
-      border-top-color: #3797ef;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-      margin: 0 auto 1rem;
+    .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    p { color: rgba(255,255,255,.6); font-size: 14px; margin: 0; }
-    .code {
+    h2 {
+      font-size: 20px;
+      margin: 0 0 8px;
+    }
+    p {
+      color: rgba(255,255,255,.5);
+      font-size: 14px;
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    .code-box {
+      background: #1c1c1e;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 14px;
+      color: #fff;
       user-select: all;
       -webkit-user-select: all;
-      color: #fff;
-      background: #1c1c1e;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 13px;
-      word-break: break-all;
-      margin-top: 12px;
-      display: block;
+      cursor: text;
+      border: 1px solid rgba(255,255,255,.1);
     }
+    button {
+      background: #3797ef;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:active { opacity: 0.8; }
+    .copied {
+      color: #4ade80;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+    .error { color: #f87171; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="spinner" id="spinner"></div>
-    <p id="msg">Redirecting back to the app…</p>
-  </div>
+  <div class="card" id="content"></div>
   <script>
     (function () {
+      var el = document.getElementById("content");
       var params = new URLSearchParams(window.location.search);
       var code = params.get("code");
       var error = params.get("error");
 
-      if (!code) {
-        document.getElementById("spinner").style.display = "none";
-        if (error) {
-          document.getElementById("msg").innerHTML =
-            "Instagram returned an error: <strong>" + error + "</strong>";
-        } else {
-          document.getElementById("msg").textContent =
-            "No authorization code received.";
-        }
-        return;
-      }
+      if (code) {
+        el.innerHTML =
+          '<div class="icon">&#10003;</div>' +
+          '<h2>Authorization Successful</h2>' +
+          '<p>Copy the code below and paste it in the app.</p>' +
+          '<div class="code-box" id="code">' + code + '</div>' +
+          '<button id="copy-btn">Copy Code</button>' +
+          '<div class="copied" id="copied-msg">Copied! Go back to the app.</div>';
 
-      // Strip code from URL immediately to prevent redirect loops on reload
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-
-      var isAndroid = /android/i.test(navigator.userAgent);
-
-      if (isAndroid) {
-        // Android intent URL — tells Chrome to launch the app and close the tab
-        window.location.href =
-          "intent://callback?code=" + encodeURIComponent(code) +
-          "#Intent;scheme=grid;package=com.example.grid;end";
+        document.getElementById("copy-btn").addEventListener("click", function () {
+          navigator.clipboard.writeText(code).then(function () {
+            document.getElementById("copied-msg").style.display = "block";
+            document.getElementById("copy-btn").textContent = "Copied!";
+          }).catch(function () {
+            // Fallback: select the text
+            var range = document.createRange();
+            range.selectNodeContents(document.getElementById("code"));
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          });
+        });
+      } else if (error) {
+        el.innerHTML =
+          '<div class="icon">&#10007;</div>' +
+          '<h2>Authorization Failed</h2>' +
+          '<p class="error">' + error + '</p>';
       } else {
-        // iOS and other platforms — use custom scheme directly
-        window.location.href = "grid://callback?code=" + encodeURIComponent(code);
+        el.innerHTML =
+          '<h2>No Code Received</h2>' +
+          '<p>No authorization code was found. Please try again from the app.</p>';
       }
-
-      // Fallback: show the code for manual copy-paste
-      setTimeout(function () {
-        document.getElementById("spinner").style.display = "none";
-        document.getElementById("msg").innerHTML =
-          "If the app didn't open, copy this code and paste it in the app:" +
-          '<span class="code">' + code + "</span>";
-      }, 2000);
     })();
   </script>
 </body>
