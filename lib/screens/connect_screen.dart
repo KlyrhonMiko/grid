@@ -15,6 +15,7 @@ class ConnectScreen extends StatefulWidget {
 class _ConnectScreenState extends State<ConnectScreen> {
   final _codeController = TextEditingController();
   bool _waitingForCode = false;
+  bool _showManualEntry = false;
 
   @override
   void dispose() {
@@ -26,7 +27,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final url = Uri.parse(InstagramConfig.authorizationUrl);
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
-      setState(() => _waitingForCode = true);
+      if (mounted) {
+        setState(() => _waitingForCode = true);
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -40,7 +43,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
   Future<void> _submitCode() async {
     final code = _codeController.text.trim().replaceAll('#_', '');
     if (code.isEmpty) return;
-
     FocusScope.of(context).unfocus();
     await context.read<InstagramProvider>().handleAuthCode(code);
   }
@@ -86,7 +88,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _waitingForCode
-                          ? 'Authorize in the browser, then copy the code shown and paste it below.'
+                          ? 'Authorize in the browser. You\'ll be redirected back automatically.'
                           : 'Sign in with your Instagram account to see your profile information and posts.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
@@ -100,8 +102,15 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     if (provider.isLoading)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF3797EF),
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(color: Color(0xFF3797EF)),
+                            SizedBox(height: 16),
+                            Text(
+                              'Connecting your account…',
+                              style: TextStyle(color: Colors.white60, fontSize: 14),
+                            ),
+                          ],
                         ),
                       )
                     else ...[
@@ -131,62 +140,79 @@ class _ConnectScreenState extends State<ConnectScreen> {
                         ),
 
                       if (_waitingForCode) ...[
-                        TextField(
-                          controller: _codeController,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+                        // Auto-redirect in progress
+                        if (!_showManualEntry) ...[
+                          const Icon(
+                            LucideIcons.externalLink,
+                            color: Colors.white38,
+                            size: 32,
                           ),
-                          decoration: InputDecoration(
-                            hintText: 'Paste authorization code here',
-                            hintStyle: const TextStyle(color: Colors.white30),
-                            filled: true,
-                            fillColor: const Color(0xFF1C1C1E),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
-                          onSubmitted: (_) => _submitCode(),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _submitCode,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3797EF),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
+                          const SizedBox(height: 24),
+                          TextButton(
+                            onPressed: () => setState(() => _showManualEntry = true),
                             child: const Text(
-                              'Connect',
+                              'Not redirecting? Paste code manually',
+                              style: TextStyle(color: Colors.white38, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: _openInstagramAuth,
+                            child: const Text(
+                              'Reopen browser',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF3797EF),
+                                fontSize: 13,
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: _openInstagramAuth,
-                          child: const Text(
-                            'Reopen browser',
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 13,
+                        ],
+
+                        // Manual fallback
+                        if (_showManualEntry) ...[
+                          TextField(
+                            controller: _codeController,
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: 'Paste authorization code here',
+                              hintStyle: const TextStyle(color: Colors.white30),
+                              filled: true,
+                              fillColor: const Color(0xFF1C1C1E),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                            ),
+                            onSubmitted: (_) => _submitCode(),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: _submitCode,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF3797EF),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const Text(
+                                'Connect',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ],
 
@@ -195,10 +221,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       Text(
                         provider.error!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 13,
-                        ),
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 60),

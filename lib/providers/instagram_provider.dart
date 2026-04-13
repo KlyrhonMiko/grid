@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
@@ -14,6 +16,8 @@ class InstagramProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _initializing = true;
   String? _error;
+
+  StreamSubscription? _linkSub;
 
   String? get accessToken => _accessToken;
   InstagramUser? get user => _user;
@@ -40,6 +44,29 @@ class InstagramProvider extends ChangeNotifier {
     } finally {
       _initializing = false;
       notifyListeners();
+    }
+
+    _listenForDeepLinks();
+  }
+
+  void _listenForDeepLinks() {
+    final appLinks = AppLinks();
+
+    // Handle link that launched the app (cold start)
+    appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleDeepLink(uri);
+    });
+
+    // Handle links while app is running (warm start)
+    _linkSub = appLinks.uriLinkStream.listen(_handleDeepLink);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme == 'grid' && uri.host == 'callback') {
+      final code = uri.queryParameters['code'];
+      if (code != null && code.isNotEmpty && !isConnected && !_isLoading) {
+        handleAuthCode(code);
+      }
     }
   }
 
@@ -115,5 +142,11 @@ class InstagramProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
   }
 }
