@@ -38,6 +38,7 @@ dependencies:
   http: ^1.4.0
   shared_preferences: ^2.5.0
   flutter_web_auth_2: ^4.0.2
+  url_launcher: ^6.3.1
   cached_network_image: ^3.4.1
   flutter_dotenv: ^5.2.1
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../providers/instagram_provider.dart';
 
@@ -14,7 +14,7 @@ class ConnectScreen extends StatefulWidget {
 
 class _ConnectScreenState extends State<ConnectScreen> {
   final _codeController = TextEditingController();
-  bool _showManualEntry = false;
+  bool _waitingForCode = false;
 
   @override
   void dispose() {
@@ -22,39 +22,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
     super.dispose();
   }
 
-  Future<void> _connectInstagram() async {
-    final provider = context.read<InstagramProvider>();
-
-    try {
-      final result = await FlutterWebAuth2.authenticate(
-        url: InstagramConfig.authorizationUrl,
-        callbackUrlScheme: 'grid',
+  Future<void> _openInstagramAuth() async {
+    final url = Uri.parse(InstagramConfig.authorizationUrl);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      setState(() => _waitingForCode = true);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not open browser.'),
+          backgroundColor: Colors.red[800],
+        ),
       );
-
-      final uri = Uri.parse(result);
-      final code = uri.queryParameters['code'];
-      if (code != null && mounted) {
-        await provider.handleAuthCode(code);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _showManualEntry = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Auto-redirect didn\'t work. Paste the code from the browser instead.',
-            ),
-            backgroundColor: Colors.grey[850],
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
     }
   }
 
-  Future<void> _submitManualCode() async {
+  Future<void> _submitCode() async {
     final code = _codeController.text.trim().replaceAll('#_', '');
     if (code.isEmpty) return;
+
+    FocusScope.of(context).unfocus();
     await context.read<InstagramProvider>().handleAuthCode(code);
   }
 
@@ -97,10 +84,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Sign in with your Instagram account to see your profile information and posts.',
+                    Text(
+                      _waitingForCode
+                          ? 'Authorize in the browser, then copy the code shown and paste it below.'
+                          : 'Sign in with your Instagram account to see your profile information and posts.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white60,
                         fontSize: 15,
                         height: 1.5,
@@ -109,45 +98,45 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     const SizedBox(height: 40),
 
                     if (provider.isLoading)
-                      const CircularProgressIndicator(color: Color(0xFF3797EF))
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF3797EF),
+                        ),
+                      )
                     else ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: _connectInstagram,
-                          icon: const Icon(LucideIcons.logIn, size: 20),
-                          label: const Text(
-                            'Log in with Instagram',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                      if (!_waitingForCode)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: _openInstagramAuth,
+                            icon: const Icon(LucideIcons.logIn, size: 20),
+                            label: const Text(
+                              'Log in with Instagram',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3797EF),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3797EF),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
                             ),
-                            elevation: 0,
                           ),
                         ),
-                      ),
 
-                      // Manual code entry fallback for desktop
-                      if (_showManualEntry) ...[
-                        const SizedBox(height: 32),
-                        const Divider(color: Colors.white12),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Or paste the code from the browser',
-                          style: TextStyle(color: Colors.white60, fontSize: 13),
-                        ),
-                        const SizedBox(height: 12),
+                      if (_waitingForCode) ...[
                         TextField(
                           controller: _codeController,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'Paste authorization code here',
                             hintStyle: const TextStyle(color: Colors.white30),
@@ -162,27 +151,39 @@ class _ConnectScreenState extends State<ConnectScreen> {
                               vertical: 14,
                             ),
                           ),
+                          onSubmitted: (_) => _submitCode(),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
                           width: double.infinity,
-                          height: 44,
+                          height: 48,
                           child: ElevatedButton(
-                            onPressed: _submitManualCode,
+                            onPressed: _submitCode,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF262626),
+                              backgroundColor: const Color(0xFF3797EF),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               elevation: 0,
                             ),
                             child: const Text(
                               'Connect',
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: _openInstagramAuth,
+                          child: const Text(
+                            'Reopen browser',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
                             ),
                           ),
                         ),
