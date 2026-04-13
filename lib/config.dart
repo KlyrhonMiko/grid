@@ -14,7 +14,9 @@ class InstagramConfig {
       );
     }
     return 'https://www.instagram.com/oauth/authorize'
-        '?client_id=$clientId'
+        '?enable_fb_login=0'
+        '&force_authentication=1'
+        '&client_id=$clientId'
         '&redirect_uri=${Uri.encodeComponent(redirectUri)}'
         '&response_type=code'
         '&scope=${Uri.encodeComponent(scope)}';

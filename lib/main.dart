@@ -8,7 +8,11 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // .env asset not found — app will still run but config values will be empty
+  }
   runApp(const MyApp());
 }
 

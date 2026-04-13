@@ -24,19 +24,23 @@ class InstagramProvider extends ChangeNotifier {
   bool get isConnected => _accessToken != null && _user != null;
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _accessToken = prefs.getString(_tokenKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _accessToken = prefs.getString(_tokenKey);
 
-    if (_accessToken != null) {
-      try {
-        await _loadUserData();
-      } catch (_) {
-        await disconnect();
+      if (_accessToken != null) {
+        try {
+          await _loadUserData();
+        } catch (_) {
+          await disconnect();
+        }
       }
+    } catch (_) {
+      _accessToken = null;
+    } finally {
+      _initializing = false;
+      notifyListeners();
     }
-
-    _initializing = false;
-    notifyListeners();
   }
 
   Future<void> handleAuthCode(String code) async {
