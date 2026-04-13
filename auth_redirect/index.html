@@ -30,12 +30,23 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     p { color: rgba(255,255,255,.6); font-size: 14px; margin: 0; }
-    a { color: #3797ef; }
+    .code {
+      user-select: all;
+      color: #fff;
+      background: #1c1c1e;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+      margin-top: 12px;
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="spinner"></div>
+    <div class="spinner" id="spinner"></div>
     <p id="msg">Redirecting back to the app…</p>
   </div>
   <script>
@@ -45,19 +56,30 @@
       var error = params.get("error");
 
       if (code) {
-        var appUrl = "grid://callback?code=" + encodeURIComponent(code);
-        window.location.replace(appUrl);
+        // Strip the code from the URL so browser reloads won't re-trigger
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
 
-        // Fallback if the redirect doesn't trigger (e.g. desktop browser)
+        // Store code before redirect so fallback can show it
+        var savedCode = code;
+
+        // Try opening the app via custom scheme
+        window.location.href = "grid://callback?code=" + encodeURIComponent(code);
+
+        // Fallback: show the code for manual entry
         setTimeout(function () {
+          document.getElementById("spinner").style.display = "none";
           document.getElementById("msg").innerHTML =
-            "If the app didn't open, copy this code and paste it in the app:<br><br>" +
-            '<strong style="user-select:all;color:#fff">' + code + "</strong>";
-        }, 2000);
+            "If the app didn't open automatically, copy this code and paste it in the app:" +
+            '<span class="code">' + savedCode + "</span>";
+        }, 1500);
       } else if (error) {
+        document.getElementById("spinner").style.display = "none";
         document.getElementById("msg").innerHTML =
           "Instagram returned an error: <strong>" + error + "</strong>";
       } else {
+        document.getElementById("spinner").style.display = "none";
         document.getElementById("msg").textContent =
           "No authorization code received.";
       }
