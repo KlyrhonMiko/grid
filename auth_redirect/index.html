@@ -18,6 +18,7 @@
     .card {
       text-align: center;
       padding: 2rem;
+      max-width: 340px;
     }
     .spinner {
       width: 32px;
@@ -32,6 +33,7 @@
     p { color: rgba(255,255,255,.6); font-size: 14px; margin: 0; }
     .code {
       user-select: all;
+      -webkit-user-select: all;
       color: #fff;
       background: #1c1c1e;
       padding: 12px 16px;
@@ -55,34 +57,42 @@
       var code = params.get("code");
       var error = params.get("error");
 
-      if (code) {
-        // Strip the code from the URL so browser reloads won't re-trigger
-        if (window.history && window.history.replaceState) {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
-
-        // Store code before redirect so fallback can show it
-        var savedCode = code;
-
-        // Try opening the app via custom scheme
-        window.location.href = "grid://callback?code=" + encodeURIComponent(code);
-
-        // Fallback: show the code for manual entry
-        setTimeout(function () {
-          document.getElementById("spinner").style.display = "none";
+      if (!code) {
+        document.getElementById("spinner").style.display = "none";
+        if (error) {
           document.getElementById("msg").innerHTML =
-            "If the app didn't open automatically, copy this code and paste it in the app:" +
-            '<span class="code">' + savedCode + "</span>";
-        }, 1500);
-      } else if (error) {
+            "Instagram returned an error: <strong>" + error + "</strong>";
+        } else {
+          document.getElementById("msg").textContent =
+            "No authorization code received.";
+        }
+        return;
+      }
+
+      // Strip code from URL immediately to prevent redirect loops on reload
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
+      var isAndroid = /android/i.test(navigator.userAgent);
+
+      if (isAndroid) {
+        // Android intent URL — tells Chrome to launch the app and close the tab
+        window.location.href =
+          "intent://callback?code=" + encodeURIComponent(code) +
+          "#Intent;scheme=grid;package=com.example.grid;end";
+      } else {
+        // iOS and other platforms — use custom scheme directly
+        window.location.href = "grid://callback?code=" + encodeURIComponent(code);
+      }
+
+      // Fallback: show the code for manual copy-paste
+      setTimeout(function () {
         document.getElementById("spinner").style.display = "none";
         document.getElementById("msg").innerHTML =
-          "Instagram returned an error: <strong>" + error + "</strong>";
-      } else {
-        document.getElementById("spinner").style.display = "none";
-        document.getElementById("msg").textContent =
-          "No authorization code received.";
-      }
+          "If the app didn't open, copy this code and paste it in the app:" +
+          '<span class="code">' + code + "</span>";
+      }, 2000);
     })();
   </script>
 </body>
